@@ -74,32 +74,40 @@
     };
 
     // =======================================================
-    // FIXED: Smart Area Scanner (Grabs the currently selected hero image)
+    // THE ULTIMATE FIX: TRUE VIEWPORT SWIPE SCANNER
     // =======================================================
     const getGarmentImage = () => {
         let candidates = [];
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
         
         document.querySelectorAll('img').forEach(img => {
             const rect = img.getBoundingClientRect();
             const src = (img.src || "").toLowerCase();
             
-            // Image must be visible and larger than a thumbnail (e.g. > 250px)
-            if (rect.width > 250 && rect.height > 250) {
-                // Filter out standard UI elements
+            // Step 1: Ensure it's a large product image, not a tiny thumbnail or logo
+            if (rect.width > 200 && rect.height > 200) {
                 if (!src.includes('logo') && !src.includes('icon') && !src.includes('avatar') && !src.includes('.svg')) {
-                    // Calculate the total pixel area on the screen
-                    const area = rect.width * rect.height;
-                    candidates.push({ 
-                        src: img.src, 
-                        area: area 
-                    });
+                    
+                    // Step 2: Calculate how much of the image is ACTUALLY showing on the screen right now
+                    const visibleWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
+                    const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+                    const visibleArea = visibleWidth * visibleHeight;
+
+                    // If a meaningful amount of the image is on screen, add it!
+                    if (visibleArea > 10000) { 
+                        candidates.push({ 
+                            src: img.src, 
+                            visibleArea: visibleArea 
+                        });
+                    }
                 }
             }
         });
 
         if (candidates.length > 0) {
-            // Sort by the largest AREA. The main gallery image you click will always be the largest.
-            candidates.sort((a, b) => b.area - a.area);
+            // Sort by VISIBLE AREA. The slide you swiped to will have the maximum visible pixels.
+            candidates.sort((a, b) => b.visibleArea - a.visibleArea);
             return candidates[0].src;
         }
         return FALLBACK_IMG;
@@ -164,7 +172,6 @@
         const detectedGarment = getGarmentImage();
         const today = getTodayStr();
         
-        // SMART RESET: Restores your trials daily
         if (localStorage.getItem("vton_last_date") !== today) {
             localStorage.setItem("vton_trials", "4");
             localStorage.setItem("vton_last_date", today);
